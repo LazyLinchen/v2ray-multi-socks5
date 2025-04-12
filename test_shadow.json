@@ -1,0 +1,51 @@
+[
+    {
+        "remarks": "最新网址：example.com",
+        "server": "example.com",
+        "server_port": 56001,
+        "method": "chacha20-ietf-poly1305",
+        "password": "testpassword"
+    },
+    {
+        "remarks": "剩余流量：10GB",
+        "server": "example.com",
+        "server_port": 56001,
+        "method": "chacha20-ietf-poly1305",
+        "password": "testpassword"
+    },
+    {
+        "remarks": "过期时间：2026-02-18",
+        "server": "example.com",
+        "server_port": 56001,
+        "method": "chacha20-ietf-poly1305",
+        "password": "testpassword"
+    },
+    {
+        "remarks": "Hong Kong-01",
+        "server": "hk01.example.com",
+        "server_port": 56001,
+        "method": "chacha20-ietf-poly1305",
+        "password": "testpassword"
+    },
+    {
+        "remarks": "Hong Kong-02",
+        "server": "hk02.example.com",
+        "server_port": 56002,
+        "method": "chacha20-ietf-poly1305",
+        "password": "testpassword"
+    },
+    {
+        "remarks": "Japan-01",
+        "server": "jp01.example.com",
+        "server_port": 56003,
+        "method": "chacha20-ietf-poly1305",
+        "password": "testpassword"
+    },
+    {
+        "remarks": "Japan-02",
+        "server": "jp02.example.com",
+        "server_port": 56004,
+        "method": "chacha20-ietf-poly1305",
+        "password": "testpassword"
+    }
+]

@@ -1,8 +1,10 @@
 import json
 import argparse
+import os
+import yaml
 from collections import defaultdict
 
-def convert_shadowsocks_to_v2ray(input_file, output_file, start_port=10001):
+def convert_shadowsocks_to_v2ray(input_file, output_file, start_port=10001, append_mode=False, docker_compose_file=None):
     # 读取原始Shadowsocks配置
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
@@ -75,15 +77,37 @@ def convert_shadowsocks_to_v2ray(input_file, output_file, start_port=10001):
                 print(f"  - Selected node from {region}: {node['remarks']}")
             print(f"  - Total: Selected {len(selected_nodes)} nodes from {region}")
 
-    # 基础配置模板
-    v2ray_config = {
-        "inbounds": [],
-        "outbounds": [],
-        "routing": {
-            "rules": [],
-            "domainStrategy": "IPIfNonMatch"
+    # 基础配置模板或读取现有配置
+    if append_mode and os.path.exists(output_file):
+        try:
+            with open(output_file, 'r', encoding='utf-8') as f:
+                v2ray_config = json.load(f)
+            print(f"Loaded existing configuration from {output_file} for appending")
+            # 获取已使用的端口，以避免端口冲突
+            used_ports = set(inbound['port'] for inbound in v2ray_config['inbounds'])
+            if used_ports and start_port <= max(used_ports):
+                start_port = max(used_ports) + 1
+                print(f"Adjusted start port to {start_port} to avoid conflicts")
+        except Exception as e:
+            print(f"Error loading existing config file for appending: {str(e)}")
+            print("Creating new configuration instead")
+            v2ray_config = {
+                "inbounds": [],
+                "outbounds": [],
+                "routing": {
+                    "rules": [],
+                    "domainStrategy": "IPIfNonMatch"
+                }
+            }
+    else:
+        v2ray_config = {
+            "inbounds": [],
+            "outbounds": [],
+            "routing": {
+                "rules": [],
+                "domainStrategy": "IPIfNonMatch"
+            }
         }
-    }
 
     current_port = start_port
 
@@ -145,6 +169,31 @@ def convert_shadowsocks_to_v2ray(input_file, output_file, start_port=10001):
         print(f"Error writing output file: {str(e)}")
         return 0, 0
 
+    # 更新 docker-compose.yaml 文件
+    if docker_compose_file and os.path.exists(docker_compose_file):
+        try:
+            # 获取所有使用的端口
+            all_ports = [inbound['port'] for inbound in v2ray_config['inbounds']]
+            min_port = min(all_ports) if all_ports else start_port
+            max_port = max(all_ports) if all_ports else start_port
+
+            # 读取现有的 docker-compose 文件
+            with open(docker_compose_file, 'r', encoding='utf-8') as f:
+                docker_compose = yaml.safe_load(f)
+
+            # 更新端口映射
+            if 'services' in docker_compose and 'v2ray' in docker_compose['services']:
+                # 替换端口映射
+                port_mapping = f"{min_port}-{max_port}:{min_port}-{max_port}"
+                docker_compose['services']['v2ray']['ports'] = [port_mapping]
+
+                # 写回 docker-compose 文件
+                with open(docker_compose_file, 'w', encoding='utf-8') as f:
+                    yaml.dump(docker_compose, f, default_flow_style=False, sort_keys=False)
+                print(f"Updated Docker Compose port mappings to {port_mapping}")
+        except Exception as e:
+            print(f"Error updating Docker Compose file: {str(e)}")
+
     return len(valid_configs), len(regions)
 
 if __name__ == "__main__":
@@ -152,7 +201,22 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input", required=True, help="Input Shadowsocks JSON file")
     parser.add_argument("-o", "--output", default="config.json", help="Output V2Ray config file")
     parser.add_argument("-p", "--port", type=int, default=10001, help="Starting port number")
+    parser.add_argument("-a", "--append", action="store_true", help="Append to existing config file instead of creating a new one")
+    parser.add_argument("-d", "--docker", default="docker-compose.yaml", help="Docker Compose file to update with port mappings")
     args = parser.parse_args()
 
-    node_count, region_count = convert_shadowsocks_to_v2ray(args.input, args.output, args.port)
-    print(f"Config generated: {args.output} with {node_count} nodes from {region_count} regions")
+    # 检查 Docker Compose 文件是否存在
+    docker_file = args.docker if os.path.exists(args.docker) else None
+    if args.docker and not docker_file:
+        print(f"Warning: Docker Compose file '{args.docker}' not found, port mappings will not be updated")
+
+    node_count, region_count = convert_shadowsocks_to_v2ray(
+        args.input,
+        args.output,
+        args.port,
+        args.append,
+        docker_file
+    )
+
+    mode_str = "appended to" if args.append else "generated"
+    print(f"Config {mode_str}: {args.output} with {node_count} nodes from {region_count} regions")
